@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interrupt-o-Meter</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main>
+    <h1>Interrupt-o-Meter</h1>
+    <p class="disclaimer">これはジョークです。真に受けないでください。</p>
+    <video id="preview" autoplay playsinline></video>
+    <div class="controls">
+      <label>source_user: <input id="sourceUser" value="me" /></label>
+      <button id="startBtn">解析開始</button>
+      <button id="stopBtn">停止</button>
+    </div>
+
+    <section class="score">
+      <h2>話しかけてOK度: <span id="talkOk">-</span></h2>
+      <p>予定由来: <span id="scheduleBusy">-</span></p>
+      <p>見た目由来: <span id="visualBusy">-</span></p>
+      <p>コメント: <span id="comment">-</span></p>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
