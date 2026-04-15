@@ -1,6 +1,68 @@
 # Interrupt-o-Meter
 
-デバイスのカメラ、画像、動画を読み込み、AI に「今この人に話しかけて大丈夫そうか」をジョーク判定させる FastAPI アプリです。
+カメラ、画像、動画を読み込み、AI が「今この人に話しかけて大丈夫そうか」をジョーク判定するアプリです。
+
+## まずこれだけ
+
+### Windows
+
+1. `setup_windows.bat` を実行
+2. Python 3.11 / 3.12 / 3.13 が無ければ、案内に従ってインストールして終了
+3. セットアップ完了後、`.env` を開いて `OPENAI_API_KEY` を設定
+4. `run_windows.bat` を実行
+5. ブラウザで `http://127.0.0.1:8000` を開く
+
+### macOS
+
+1. `setup_macos.command` を実行
+2. Python 3.11 / 3.12 / 3.13 が無ければ、案内に従ってインストールして終了
+3. セットアップ完了後、`.env` を開いて `OPENAI_API_KEY` を設定
+4. `run_macos.command` を実行
+5. ブラウザで `http://127.0.0.1:8000` を開く
+
+## セットアップスクリプトの動作
+
+- Python 3.11 / 3.12 / 3.13 が入っているか確認
+- 入っていれば `.venv` を作成
+- 依存関係をインストール
+- `.env` が無ければ `.env.example` から作成
+- 対応 Python が無ければユーザーにインストールを依頼して終了
+
+## 手動セットアップ
+
+### Windows
+
+```bat
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+copy .env.example .env
+```
+
+### macOS
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+`.env` に `OPENAI_API_KEY` を設定してください。
+
+## 起動
+
+### Windows
+
+```bat
+run_windows.bat
+```
+
+### macOS
+
+```bash
+./run_macos.command
+```
 
 ## Features
 
@@ -10,25 +72,6 @@
 - OpenAI Responses API による LLM 画像判定
 - 赤・黄・青の信号表示
 - 8 秒ごとの実況モード
-
-## Setup
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-```
-
-`.env` に `OPENAI_API_KEY` を設定してください。
-
-## Run
-
-```bash
-uvicorn app.main:app --reload
-```
-
-ブラウザで `http://127.0.0.1:8000` を開きます。
 
 ## Environment Variables
 
