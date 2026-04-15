@@ -4,9 +4,17 @@
 
 ## まずこれだけ
 
+### 0. GitHub から ZIP をダウンロード
+
+1. GitHub の `Interrupt-o-Meter` リポジトリを開く
+2. `Code` を押す
+3. `Download ZIP` を選ぶ
+4. ダウンロードした ZIP を解凍する
+5. 解凍してできた `Interrupt-o-Meter` フォルダを開く
+
 ### Windows
 
-1. `setup_windows.bat` を実行
+1. ZIP を解凍したフォルダで `setup_windows.bat` を実行
 2. Python 3.11 / 3.12 / 3.13 が無ければ、案内に従ってインストールして終了
 3. セットアップ完了後、`.env` を開いて `OPENAI_API_KEY` を設定
 4. `run_windows.bat` を実行
@@ -14,11 +22,33 @@
 
 ### macOS
 
-1. `setup_macos.command` を実行
+1. ZIP を解凍したフォルダで `setup_macos.command` を実行
 2. Python 3.11 / 3.12 / 3.13 が無ければ、案内に従ってインストールして終了
 3. セットアップ完了後、`.env` を開いて `OPENAI_API_KEY` を設定
 4. `run_macos.command` を実行
 5. ブラウザで `http://127.0.0.1:8000` を開く
+
+## ZIP ダウンロードから起動まで
+
+### Windows
+
+1. GitHub から `Download ZIP`
+2. ZIP を解凍
+3. 解凍したフォルダを開く
+4. `setup_windows.bat` をダブルクリック
+5. `.env` に `OPENAI_API_KEY` を設定
+6. `run_windows.bat` をダブルクリック
+7. `http://127.0.0.1:8000` を開く
+
+### macOS
+
+1. GitHub から `Download ZIP`
+2. ZIP を解凍
+3. 解凍したフォルダを開く
+4. `setup_macos.command` を実行
+5. `.env` に `OPENAI_API_KEY` を設定
+6. `run_macos.command` を実行
+7. `http://127.0.0.1:8000` を開く
 
 ## セットアップスクリプトの動作
 
