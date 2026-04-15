@@ -35,14 +35,15 @@ uvicorn app.main:app --reload
 - `OPENAI_API_KEY`: OpenAI API key
 - `OPENAI_MODEL`: 既定は `gpt-5.4-mini`
 - `OPENAI_TIMEOUT_SEC`: API タイムアウト秒数
-
-既存の Graph / SQLite 用設定も残していますが、今回の主導線はカメラ・画像・動画のジョーク判定 UI です。
+- `FRAME_INTERVAL_SEC`: 実況モードの参考値
+- `IMAGE_MAX_WIDTH`: クライアントで切り出す画像の最大辺
+- `IMAGE_JPEG_QUALITY`: クライアントで送る JPEG 品質
 
 ## API
 
 - `GET /api/health`: ヘルスチェック
 - `POST /api/score`: 画像データ URL を受け取り、赤黄青の信号つきスコアを返す
-- `POST /api/analyze/frame`: 既存互換の分析 API
+- `POST /api/analyze/frame`: 既存互換の画像分析 API
 
 ## Notes
 
