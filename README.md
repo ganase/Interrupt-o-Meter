@@ -1,87 +1,50 @@
-# Interrupt-o-Meter App (Prototype)
+# Interrupt-o-Meter
 
-Outlook 予定とカメラ静止画を使って「話しかけてOK度」をジョーク表示する FastAPI アプリです。
+デバイスのカメラ、画像、動画を読み込み、AI に「今この人に話しかけて大丈夫そうか」をジョーク判定させる FastAPI アプリです。
 
-## この仕組みは PC ローカルで動く？
-はい。**初期版は PC ローカル実行が前提**です（開発用サーバーをローカルで起動し、同一 PC のブラウザで利用）。
+## Features
 
-また、同一ネットワーク内からアクセスできるように起動すれば、スマートフォンをブラウザクライアントとして使うことも可能です。
+- ブラウザのカメラ入力
+- 画像ファイルの読み込み
+- 動画ファイルの読み込みとフレーム指定
+- OpenAI Responses API による LLM 画像判定
+- 赤・黄・青の信号表示
+- 8 秒ごとの実況モード
 
----
+## Setup
 
-## 動作環境条件（デバイス / OS / クラウドサービス）
-
-### 1) デバイス
-- **必須**: カメラ付きデバイス（PC 内蔵カメラ or 外付け USB カメラ）
-- **推奨**: 開発実行は PC、閲覧のみならスマートフォンブラウザも可
-- **注意**: カメラ利用にはブラウザ権限の許可が必要
-
-### 2) OS
-- **推奨**: Linux / macOS / Windows 11
-- Python 仮想環境を作成できること
-- ブラウザ（Chrome / Edge / Safari など）で `getUserMedia` が使えること
-
-### 3) ランタイム / ミドルウェア
-- **Python**: 3.11 以上（設計想定）
-- 依存パッケージ: `requirements.txt` の内容
-- **DB**: SQLite（ローカルファイル `data/app.db`）
-
-### 4) 必要な外部クラウドサービス
-- **Microsoft Graph (Outlook Calendar)**
-  - Azure アプリ登録済みであること
-  - `Calendars.ReadBasic` など必要スコープが設定済みであること
-  - delegated auth（初期版は device code flow）を利用可能であること
-- **OpenAI API**
-  - 画像入力対応モデルを利用できる API キーがあること
-  - ネットワークから `api.openai.com` へ到達できること
-
-### 5) ネットワーク / セキュリティ条件
-- 外部 API（Microsoft Graph / OpenAI）へ HTTPS 接続できること
-- `.env` に API キー・クレデンシャルを設定し、Git 管理に含めないこと
-- カメラ権限はブラウザ側で明示許可すること
-
-### 6) クラウドデプロイ時の補足
-このプロトタイプはローカル前提ですが、将来的に Render / Railway / Fly.io / Azure App Service へ移行可能な構成です。
-
-ただし以下の追加対応が必要です。
-- 本番向け ASGI 起動（gunicorn/uvicorn 設定）
-- HTTPS 前提でのカメラアクセス設計
-- 認証コールバック URL / CORS / シークレット管理
-- SQLite の代替（必要なら PostgreSQL など）
-
----
-
-## 機能
-- `GET /api/health`: ヘルスチェック
-- `POST /api/calendar/fetch`: Microsoft Graph から期間指定で予定取得して SQLite 保存
-- `GET /api/calendar/events`: 保存済み予定を取得
-- `GET /api/calendar/events.csv`: 保存済み予定を CSV 出力
-- `POST /api/analyze/frame`: 画像 + 予定から `talk_ok_score` を算出
-- ブラウザ UI（`/`）でカメラ表示と定期解析
-
-## セットアップ
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+.venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
+copy .env.example .env
 ```
 
-`.env` を設定してください（OpenAI / Graph）。未設定時は画像判定を中立値 fallback で処理します。
+`.env` に `OPENAI_API_KEY` を設定してください。
 
-## 起動
+## Run
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
-ブラウザで `http://127.0.0.1:8000` を開いて利用します。
+ブラウザで `http://127.0.0.1:8000` を開きます。
 
-## テスト
-```bash
-pytest -q
-```
+## Environment Variables
 
-## 注意
-- 本アプリはジョーク用途です。判定の正確性を保証しません。
-- 秘密情報は `.env` で管理し、GitHub へコミットしないでください。
-- 画像の永続保存は初期版では無効です。
+- `OPENAI_API_KEY`: OpenAI API key
+- `OPENAI_MODEL`: 既定は `gpt-5.4-mini`
+- `OPENAI_TIMEOUT_SEC`: API タイムアウト秒数
+
+既存の Graph / SQLite 用設定も残していますが、今回の主導線はカメラ・画像・動画のジョーク判定 UI です。
+
+## API
+
+- `GET /api/health`: ヘルスチェック
+- `POST /api/score`: 画像データ URL を受け取り、赤黄青の信号つきスコアを返す
+- `POST /api/analyze/frame`: 既存互換の分析 API
+
+## Notes
+
+- 動画そのものを API に送るのではなく、現在フレームを切り出して画像として判定します。
+- 判定は visible cues ベースの軽いジョーク用途です。重要な判断には使わないでください。

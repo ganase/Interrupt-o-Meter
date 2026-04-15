@@ -1,22 +1,33 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter
 
 from app.config import settings
 from app.repositories.event_repo import list_events
 from app.repositories.result_repo import insert_result
-from app.schemas import AnalyzeFrameRequest, AnalyzeFrameResponse
+from app.schemas import AnalyzeFrameRequest, AnalyzeFrameResponse, ScoreRequest, ScoreResponse
 from app.services.comment_builder import build_comment
-from app.services.openai_vision import analyze_visual_busy
+from app.services.openai_vision import analyze_visual_busy, score_interruptability
 from app.services.scoring import blend_busy_scores, calculate_schedule_busy_score
 
-router = APIRouter(prefix="/api/analyze", tags=["analyze"])
+router = APIRouter(tags=["camera"])
 
 
-@router.post("/frame", response_model=AnalyzeFrameResponse)
+@router.post("/api/score", response_model=ScoreResponse)
+async def score_image(req: ScoreRequest) -> ScoreResponse:
+    result = await score_interruptability(req.image_data_url, req.source_label)
+    return ScoreResponse(
+        **result.model_dump(by_alias=True),
+        model=settings.openai_model,
+        sourceLabel=req.source_label,
+        generatedAt=datetime.now(timezone.utc),
+    )
+
+
+@router.post("/api/analyze/frame", response_model=AnalyzeFrameResponse)
 async def analyze_frame(req: AnalyzeFrameRequest) -> AnalyzeFrameResponse:
-    from datetime import timedelta
-
     lookback_start = req.captured_at - timedelta(days=1)
     lookahead_end = req.captured_at + timedelta(days=1)
 
