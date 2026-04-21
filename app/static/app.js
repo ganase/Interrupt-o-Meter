@@ -3,6 +3,7 @@ const stopCameraButton = document.querySelector("#stopCameraButton");
 const captureButton = document.querySelector("#captureButton");
 const analyzeButton = document.querySelector("#analyzeButton");
 const autoAnalyzeButton = document.querySelector("#autoAnalyzeButton");
+const manualSignalButtons = document.querySelectorAll("[data-manual-signal]");
 const autoAnalyzeIntervalInput = document.querySelector("#autoAnalyzeIntervalInput");
 const fileInput = document.querySelector("#fileInput");
 const cameraPreview = document.querySelector("#cameraPreview");
@@ -15,6 +16,7 @@ const videoScrubber = document.querySelector("#videoScrubber");
 const trafficLight = document.querySelector("#trafficLight");
 const scoreValue = document.querySelector("#scoreValue");
 const confidenceValue = document.querySelector("#confidenceValue");
+const resultAgeValue = document.querySelector("#resultAgeValue");
 const headline = document.querySelector("#headline");
 const reasons = document.querySelector("#reasons");
 const playfulSuggestion = document.querySelector("#playfulSuggestion");
@@ -25,11 +27,32 @@ const workingCanvas = document.querySelector("#workingCanvas");
 let cameraStream = null;
 let currentSource = null;
 let autoAnalyzeTimer = null;
+let resultAgeTimer = null;
 let analyzeInFlight = false;
+let lastGeneratedAtMs = null;
 
 const AUTO_ANALYZE_DEFAULT_SECONDS = 30;
 const AUTO_ANALYZE_MIN_SECONDS = 2;
-const AUTO_ANALYZE_STARTING = -1;
+const MANUAL_SIGNAL_CONTENT = {
+  red: {
+    label: "赤",
+    headline: "今はそっとしておきましょう",
+    reasons: ["手動で赤信号に切り替えました"],
+    playfulSuggestion: "あとで声をかける前提で、今はいったん待機です。",
+  },
+  yellow: {
+    label: "黄",
+    headline: "様子を見ながらが安全です",
+    reasons: ["手動で黄信号に切り替えました"],
+    playfulSuggestion: "ひと呼吸おいて、短めに声をかける想定です。",
+  },
+  blue: {
+    label: "青",
+    headline: "今なら話しかけてよさそうです",
+    reasons: ["手動で青信号に切り替えました"],
+    playfulSuggestion: "軽く一言だけ、テンポよく話しかけましょう。",
+  },
+};
 
 function releaseCurrentObjectUrl() {
   if (currentSource?.objectUrl) {
@@ -52,16 +75,90 @@ function hideAllMedia() {
   emptyPreview.classList.add("hidden");
 }
 
+function canAutoAnalyze() {
+  return currentSource?.kind === "camera";
+}
+
+function syncAnalyzeControls() {
+  analyzeButton.disabled = !currentSource;
+  autoAnalyzeButton.disabled = !canAutoAnalyze();
+  autoAnalyzeButton.textContent = autoAnalyzeTimer === null ? "自動判定を開始" : "自動判定を停止";
+}
+
+function clearResultAgeTimer() {
+  if (resultAgeTimer !== null) {
+    window.clearInterval(resultAgeTimer);
+    resultAgeTimer = null;
+  }
+}
+
+function formatElapsedSeconds(timestampMs) {
+  const elapsedMs = Math.max(0, Date.now() - timestampMs);
+  const seconds = Math.floor(elapsedMs / 1000);
+  return `${seconds}秒前`;
+}
+
+function renderResultAge() {
+  if (lastGeneratedAtMs === null || Number.isNaN(lastGeneratedAtMs)) {
+    resultAgeValue.textContent = "--";
+    return;
+  }
+  resultAgeValue.textContent = formatElapsedSeconds(lastGeneratedAtMs);
+}
+
+function currentResultAgeLabel() {
+  return lastGeneratedAtMs === null ? "たった今" : formatElapsedSeconds(lastGeneratedAtMs);
+}
+
+function setResultTimestamp(timestamp) {
+  lastGeneratedAtMs = typeof timestamp === "number" && Number.isFinite(timestamp) ? timestamp : null;
+  clearResultAgeTimer();
+  renderResultAge();
+  if (lastGeneratedAtMs !== null) {
+    resultAgeTimer = window.setInterval(renderResultAge, 1000);
+  }
+}
+
+function setReasons(items) {
+  reasons.replaceChildren(
+    ...items.map((item) => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      return li;
+    }),
+  );
+}
+
+function setManualSignal(signal) {
+  const content = MANUAL_SIGNAL_CONTENT[signal];
+  if (!content) {
+    return;
+  }
+
+  stopAutoAnalyze();
+  trafficLight.dataset.signal = signal;
+  scoreValue.textContent = "--";
+  confidenceValue.textContent = "--";
+  headline.textContent = content.headline;
+  setReasons(content.reasons);
+  playfulSuggestion.textContent = content.playfulSuggestion;
+  caution.textContent = "手動で信号を変更しています。AI判定を行うと結果は上書きされます。";
+  setResultTimestamp(null);
+  setStatus(`手動で${content.label}信号に切り替えました。`);
+}
+
 function showEmptyState() {
+  stopAutoAnalyze();
   releaseCurrentObjectUrl();
   hideAllMedia();
   emptyPreview.classList.remove("hidden");
   videoScrubberWrap.classList.add("hidden");
   currentSource = null;
-  analyzeButton.disabled = true;
-  autoAnalyzeButton.disabled = true;
   captureButton.disabled = true;
+  stopCameraButton.disabled = true;
   setSource("ソース未選択");
+  setResultTimestamp(null);
+  syncAnalyzeControls();
 }
 
 function normalizeAutoAnalyzeSeconds() {
@@ -74,27 +171,24 @@ function normalizeAutoAnalyzeSeconds() {
 
 function stopAutoAnalyze() {
   if (autoAnalyzeTimer !== null) {
-    if (autoAnalyzeTimer !== AUTO_ANALYZE_STARTING) {
-      window.clearTimeout(autoAnalyzeTimer);
-    }
+    window.clearInterval(autoAnalyzeTimer);
     autoAnalyzeTimer = null;
   }
-  autoAnalyzeButton.textContent = "実況モード OFF";
+  syncAnalyzeControls();
 }
 
-function scheduleNextAutoAnalyze() {
-  if (!cameraStream) {
+function startAutoAnalyzeInterval() {
+  if (!canAutoAnalyze()) {
     stopAutoAnalyze();
     return;
   }
 
+  stopAutoAnalyze();
   const seconds = normalizeAutoAnalyzeSeconds();
-  autoAnalyzeTimer = window.setTimeout(async () => {
-    await analyzeCurrentFrame({ silentIfBusy: true });
-    if (autoAnalyzeTimer !== null) {
-      scheduleNextAutoAnalyze();
-    }
+  autoAnalyzeTimer = window.setInterval(() => {
+    void analyzeCurrentFrame({ silentIfBusy: true });
   }, seconds * 1000);
+  syncAnalyzeControls();
 }
 
 function stopCamera() {
@@ -105,11 +199,12 @@ function stopCamera() {
     cameraStream = null;
   }
   cameraPreview.srcObject = null;
-  stopCameraButton.disabled = true;
-  captureButton.disabled = true;
   stopAutoAnalyze();
   if (!currentSource || currentSource.kind === "camera") {
     showEmptyState();
+  } else {
+    stopCameraButton.disabled = true;
+    captureButton.disabled = true;
   }
 }
 
@@ -127,11 +222,10 @@ async function startCamera() {
     cameraPreview.srcObject = stream;
     currentSource = { kind: "camera" };
     setSource("ライブカメラ");
-    analyzeButton.disabled = false;
-    autoAnalyzeButton.disabled = false;
     stopCameraButton.disabled = false;
     captureButton.disabled = false;
-    setStatus("カメラ準備完了。AI判定できます。");
+    syncAnalyzeControls();
+    setStatus("カメラの準備ができました。AIで判定を押すと自動更新が始まります。");
   } catch (error) {
     console.error(error);
     setStatus("カメラを開始できませんでした。権限設定を確認してください。");
@@ -171,15 +265,10 @@ function updateResult(result) {
   scoreValue.textContent = String(result.score);
   confidenceValue.textContent = `${result.confidence}%`;
   headline.textContent = result.headline;
-  reasons.replaceChildren(
-    ...result.reasons.map((item) => {
-      const li = document.createElement("li");
-      li.textContent = item;
-      return li;
-    }),
-  );
+  setReasons(result.reasons);
   playfulSuggestion.textContent = result.playfulSuggestion;
   caution.textContent = result.caution;
+  setResultTimestamp(Date.parse(result.generatedAt));
 }
 
 async function analyzeCurrentFrame(options = {}) {
@@ -200,7 +289,7 @@ async function analyzeCurrentFrame(options = {}) {
 
   analyzeInFlight = true;
   analyzeButton.disabled = true;
-  setStatus("AIが空気を読んでいます...");
+  setStatus("AIが判定中です...");
 
   try {
     const response = await fetch("/api/score", {
@@ -216,13 +305,13 @@ async function analyzeCurrentFrame(options = {}) {
       throw new Error(payload.error || "Unknown API error");
     }
     updateResult(payload);
-    setStatus(`${payload.model} が ${payload.generatedAt} に判定しました。`);
+    setStatus(`${payload.model} が判定しました。最終判定は ${currentResultAgeLabel()} です。`);
   } catch (error) {
     console.error(error);
     setStatus(`判定に失敗しました: ${error.message}`);
   } finally {
     analyzeInFlight = false;
-    analyzeButton.disabled = false;
+    syncAnalyzeControls();
   }
 }
 
@@ -249,11 +338,11 @@ async function loadFile(file) {
     imagePreview.src = url;
     imagePreview.classList.remove("hidden");
     currentSource = { kind: "upload-image", objectUrl: url };
-    analyzeButton.disabled = true;
-    autoAnalyzeButton.disabled = true;
     captureButton.disabled = true;
+    stopCameraButton.disabled = true;
     videoScrubberWrap.classList.add("hidden");
     setSource(`画像ファイル: ${file.name}`);
+    syncAnalyzeControls();
     setStatus("画像を読み込み中です...");
     return;
   }
@@ -263,15 +352,17 @@ async function loadFile(file) {
     uploadVideo.src = url;
     uploadVideo.classList.remove("hidden");
     currentSource = { kind: "upload-video", objectUrl: url };
-    analyzeButton.disabled = true;
-    autoAnalyzeButton.disabled = true;
     captureButton.disabled = true;
+    stopCameraButton.disabled = true;
     videoScrubberWrap.classList.remove("hidden");
     setSource(`動画ファイル: ${file.name}`);
+    syncAnalyzeControls();
     setStatus("動画を読み込み中です...");
     return;
   }
 
+  currentSource = null;
+  syncAnalyzeControls();
   setStatus("未対応のファイル形式です。画像か動画を選択してください。");
 }
 
@@ -281,37 +372,41 @@ captureButton.addEventListener("click", async () => {
   if (!cameraStream) {
     return;
   }
+  stopAutoAnalyze();
   const snapshot = await captureCurrentFrame();
   hideAllMedia();
   imagePreview.src = snapshot;
   imagePreview.classList.remove("hidden");
   currentSource = { kind: "upload-image", dataUrl: snapshot };
-  analyzeButton.disabled = false;
-  autoAnalyzeButton.disabled = true;
   captureButton.disabled = true;
   stopCameraButton.disabled = false;
   setSource("カメラ静止画");
+  syncAnalyzeControls();
   setStatus("カメラ映像を静止画として固定しました。");
 });
 
-analyzeButton.addEventListener("click", analyzeCurrentFrame);
+analyzeButton.addEventListener("click", () => {
+  if (canAutoAnalyze()) {
+    startAutoAnalyzeInterval();
+    setStatus(`自動判定中です。${normalizeAutoAnalyzeSeconds()}秒ごとに再判定します。`);
+  }
+  void analyzeCurrentFrame();
+});
 
 autoAnalyzeButton.addEventListener("click", () => {
-  if (autoAnalyzeTimer !== null) {
-    stopAutoAnalyze();
-    setStatus("実況モードを停止しました。");
+  if (!canAutoAnalyze()) {
     return;
   }
 
-  const seconds = normalizeAutoAnalyzeSeconds();
-  autoAnalyzeButton.textContent = "実況モード ON";
-  autoAnalyzeTimer = AUTO_ANALYZE_STARTING;
-  setStatus(`実況モード中。${seconds}秒ごとに再判定します。`);
-  void analyzeCurrentFrame({ silentIfBusy: true }).finally(() => {
-    if (autoAnalyzeTimer === AUTO_ANALYZE_STARTING) {
-      scheduleNextAutoAnalyze();
-    }
-  });
+  if (autoAnalyzeTimer !== null) {
+    stopAutoAnalyze();
+    setStatus("自動判定を停止しました。");
+    return;
+  }
+
+  startAutoAnalyzeInterval();
+  setStatus(`自動判定中です。${normalizeAutoAnalyzeSeconds()}秒ごとに再判定します。`);
+  void analyzeCurrentFrame({ silentIfBusy: true });
 });
 
 autoAnalyzeIntervalInput.addEventListener("change", () => {
@@ -320,11 +415,14 @@ autoAnalyzeIntervalInput.addEventListener("change", () => {
     return;
   }
 
-  if (autoAnalyzeTimer !== AUTO_ANALYZE_STARTING) {
-    window.clearTimeout(autoAnalyzeTimer);
-  }
-  scheduleNextAutoAnalyze();
-  setStatus(`実況モード中。${seconds}秒ごとに再判定します。`);
+  startAutoAnalyzeInterval();
+  setStatus(`自動判定中です。${seconds}秒ごとに再判定します。`);
+});
+
+manualSignalButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setManualSignal(button.dataset.manualSignal);
+  });
 });
 
 fileInput.addEventListener("change", (event) => {
@@ -336,7 +434,7 @@ videoScrubber.addEventListener("input", onVideoScrub);
 
 uploadVideo.addEventListener("loadedmetadata", () => {
   videoScrubber.value = "0";
-  analyzeButton.disabled = false;
+  syncAnalyzeControls();
   setStatus("動画を読み込みました。再生位置のフレームで判定します。");
 });
 
@@ -348,11 +446,15 @@ uploadVideo.addEventListener("timeupdate", () => {
 });
 
 imagePreview.addEventListener("load", () => {
-  analyzeButton.disabled = false;
-  setStatus("画像を読み込みました。AI判定できます。");
+  syncAnalyzeControls();
+  setStatus("画像を読み込みました。AIで判定できます。");
 });
 
-window.addEventListener("beforeunload", stopCamera);
+window.addEventListener("beforeunload", () => {
+  clearResultAgeTimer();
+  stopCamera();
+});
 
 autoAnalyzeIntervalInput.value = String(AUTO_ANALYZE_DEFAULT_SECONDS);
+window.setManualSignal = setManualSignal;
 showEmptyState();

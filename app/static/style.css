@@ -123,6 +123,21 @@ body {
   color: var(--ink);
 }
 
+.button.signal-red {
+  background: rgba(203, 47, 47, 0.14);
+  color: #8f1f1f;
+}
+
+.button.signal-yellow {
+  background: rgba(213, 154, 24, 0.18);
+  color: #8a620f;
+}
+
+.button.signal-blue {
+  background: rgba(25, 137, 214, 0.16);
+  color: #125b90;
+}
+
 .upload {
   display: grid;
   gap: 8px;
@@ -248,9 +263,27 @@ body {
   background: var(--blue);
 }
 
+.signal-title {
+  margin-top: 14px;
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.signal-interpretation {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(22, 22, 20, 0.08);
+}
+
+.manual-signal-controls {
+  margin-top: 4px;
+}
+
 .score-wrap {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: end;
 }
@@ -295,6 +328,12 @@ body {
   margin: 16px 0 0;
   font-size: 0.95rem;
   color: var(--muted);
+}
+
+.app-status {
+  max-width: 760px;
+  margin: 16px auto 0;
+  text-align: center;
 }
 
 .hidden {
