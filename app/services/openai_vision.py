@@ -15,9 +15,12 @@ SYSTEM_PROMPT = (
     "Estimate whether it looks like a good moment to talk to the person in the image. "
     "Use only visible, situational cues such as looking focused on a screen, in conversation, eating, "
     "exercising, wearing headphones, driving, sleeping, or appearing idle. "
+    "Treat a visible smile, relaxed expression, and open body language as strong positive cues. "
+    "If the person is clearly smiling, prefer a blue result unless there is a strong conflicting cue. "
     "Do not infer sensitive traits or identity. Do not guess health status, disability, ethnicity, religion, "
     "age, gender identity, socioeconomic class, or private attributes. "
-    "If the scene is ambiguous, prefer a middle score and a yellow signal. "
+    "If the scene is ambiguous, prefer a slightly positive middle score rather than an overly strict result. "
+    "All user-facing strings must be natural Japanese. "
     "Return concise JSON only."
 )
 
@@ -26,7 +29,7 @@ FALLBACK_SCORE_RESULT = InterruptScoreResult(
     signal="yellow",
     confidence=25,
     headline="様子見のイエローです",
-    reasons=["画像だけでは状況が読み切れません", "安全側に寄せて中間スコアにしました"],
+    reasons=["画像だけでは状況を読み切れません", "安全側に寄せて中間スコアにしました"],
     playfulSuggestion="5分後にもう一度だけ様子をうかがいましょう。",
     caution="これはジョーク判定です。重要な判断には使わないでください。",
 )
@@ -51,9 +54,9 @@ def _extract_text_json(payload: dict[str, Any]) -> str | None:
 
 
 def _signal_from_score(score: int) -> str:
-    if score <= 34:
+    if score <= 24:
         return "red"
-    if score <= 69:
+    if score <= 59:
         return "yellow"
     return "blue"
 
@@ -89,9 +92,11 @@ async def score_interruptability(image_data_url: str, source_label: str = "unkno
                             f"Input source: {source_label}. "
                             "Score from 0 to 100, where 0 means definitely do not interrupt and "
                             "100 means probably safe to chat. "
-                            "Map to red (0-34), yellow (35-69), blue (70-100). "
+                            "Map to red (0-24), yellow (25-59), blue (60-100). "
+                            "A visible smile should usually land in blue unless another strong cue says not to interrupt. "
                             "Give a short headline, exactly 2 short reasons based on visible evidence, "
-                            "and one playful suggestion."
+                            "and one playful suggestion. "
+                            "Write headline, reasons, playfulSuggestion, and caution in Japanese."
                         ),
                     },
                     {
