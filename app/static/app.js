@@ -3,6 +3,7 @@ const stopCameraButton = document.querySelector("#stopCameraButton");
 const captureButton = document.querySelector("#captureButton");
 const analyzeButton = document.querySelector("#analyzeButton");
 const autoAnalyzeButton = document.querySelector("#autoAnalyzeButton");
+const autoAnalyzeIntervalInput = document.querySelector("#autoAnalyzeIntervalInput");
 const fileInput = document.querySelector("#fileInput");
 const cameraPreview = document.querySelector("#cameraPreview");
 const uploadVideo = document.querySelector("#uploadVideo");
@@ -24,6 +25,11 @@ const workingCanvas = document.querySelector("#workingCanvas");
 let cameraStream = null;
 let currentSource = null;
 let autoAnalyzeTimer = null;
+let analyzeInFlight = false;
+
+const AUTO_ANALYZE_DEFAULT_SECONDS = 30;
+const AUTO_ANALYZE_MIN_SECONDS = 2;
+const AUTO_ANALYZE_STARTING = -1;
 
 function releaseCurrentObjectUrl() {
   if (currentSource?.objectUrl) {
@@ -58,12 +64,37 @@ function showEmptyState() {
   setSource("ソース未選択");
 }
 
+function normalizeAutoAnalyzeSeconds() {
+  const rawValue = Number(autoAnalyzeIntervalInput.value);
+  const safeValue = Number.isFinite(rawValue) ? rawValue : AUTO_ANALYZE_DEFAULT_SECONDS;
+  const normalizedValue = Math.max(AUTO_ANALYZE_MIN_SECONDS, Math.round(safeValue));
+  autoAnalyzeIntervalInput.value = String(normalizedValue);
+  return normalizedValue;
+}
+
 function stopAutoAnalyze() {
-  if (autoAnalyzeTimer) {
-    window.clearInterval(autoAnalyzeTimer);
+  if (autoAnalyzeTimer !== null) {
+    if (autoAnalyzeTimer !== AUTO_ANALYZE_STARTING) {
+      window.clearTimeout(autoAnalyzeTimer);
+    }
     autoAnalyzeTimer = null;
   }
   autoAnalyzeButton.textContent = "実況モード OFF";
+}
+
+function scheduleNextAutoAnalyze() {
+  if (!cameraStream) {
+    stopAutoAnalyze();
+    return;
+  }
+
+  const seconds = normalizeAutoAnalyzeSeconds();
+  autoAnalyzeTimer = window.setTimeout(async () => {
+    await analyzeCurrentFrame({ silentIfBusy: true });
+    if (autoAnalyzeTimer !== null) {
+      scheduleNextAutoAnalyze();
+    }
+  }, seconds * 1000);
 }
 
 function stopCamera() {
@@ -151,13 +182,23 @@ function updateResult(result) {
   caution.textContent = result.caution;
 }
 
-async function analyzeCurrentFrame() {
+async function analyzeCurrentFrame(options = {}) {
+  const { silentIfBusy = false } = options;
+
+  if (analyzeInFlight) {
+    if (!silentIfBusy) {
+      setStatus("現在の判定が終わるまでお待ちください。");
+    }
+    return;
+  }
+
   const imageDataUrl = await captureCurrentFrame();
   if (!imageDataUrl) {
     setStatus("先にカメラまたはファイルを選択してください。");
     return;
   }
 
+  analyzeInFlight = true;
   analyzeButton.disabled = true;
   setStatus("AIが空気を読んでいます...");
 
@@ -180,6 +221,7 @@ async function analyzeCurrentFrame() {
     console.error(error);
     setStatus(`判定に失敗しました: ${error.message}`);
   } finally {
+    analyzeInFlight = false;
     analyzeButton.disabled = false;
   }
 }
@@ -255,17 +297,34 @@ captureButton.addEventListener("click", async () => {
 analyzeButton.addEventListener("click", analyzeCurrentFrame);
 
 autoAnalyzeButton.addEventListener("click", () => {
-  if (autoAnalyzeTimer) {
+  if (autoAnalyzeTimer !== null) {
     stopAutoAnalyze();
     setStatus("実況モードを停止しました。");
     return;
   }
-  autoAnalyzeTimer = window.setInterval(() => {
-    void analyzeCurrentFrame();
-  }, 8000);
+
+  const seconds = normalizeAutoAnalyzeSeconds();
   autoAnalyzeButton.textContent = "実況モード ON";
-  setStatus("実況モード中。8秒ごとに再判定します。");
-  void analyzeCurrentFrame();
+  autoAnalyzeTimer = AUTO_ANALYZE_STARTING;
+  setStatus(`実況モード中。${seconds}秒ごとに再判定します。`);
+  void analyzeCurrentFrame({ silentIfBusy: true }).finally(() => {
+    if (autoAnalyzeTimer === AUTO_ANALYZE_STARTING) {
+      scheduleNextAutoAnalyze();
+    }
+  });
+});
+
+autoAnalyzeIntervalInput.addEventListener("change", () => {
+  const seconds = normalizeAutoAnalyzeSeconds();
+  if (autoAnalyzeTimer === null) {
+    return;
+  }
+
+  if (autoAnalyzeTimer !== AUTO_ANALYZE_STARTING) {
+    window.clearTimeout(autoAnalyzeTimer);
+  }
+  scheduleNextAutoAnalyze();
+  setStatus(`実況モード中。${seconds}秒ごとに再判定します。`);
 });
 
 fileInput.addEventListener("change", (event) => {
@@ -295,4 +354,5 @@ imagePreview.addEventListener("load", () => {
 
 window.addEventListener("beforeunload", stopCamera);
 
+autoAnalyzeIntervalInput.value = String(AUTO_ANALYZE_DEFAULT_SECONDS);
 showEmptyState();

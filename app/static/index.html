@@ -26,9 +26,40 @@
       </section>
 
       <section class="workspace">
+        <section class="card signal-panel">
+          <div class="section-title">
+            <h2>信号</h2>
+            <p>赤・黄・青で表示</p>
+          </div>
+
+          <div class="traffic-light" id="trafficLight">
+            <div class="lamp lamp-red"></div>
+            <div class="lamp lamp-yellow"></div>
+            <div class="lamp lamp-blue"></div>
+          </div>
+        </section>
+
+        <section class="card metrics-panel">
+          <div class="section-title">
+            <h2>Score / Confidence</h2>
+            <p>判定の強さと確信度</p>
+          </div>
+
+          <div class="score-wrap">
+            <div>
+              <p class="metric-label">Interrupt Score</p>
+              <p id="scoreValue" class="metric-value">--</p>
+            </div>
+            <div>
+              <p class="metric-label">Confidence</p>
+              <p id="confidenceValue" class="metric-small">--</p>
+            </div>
+          </div>
+        </section>
+
         <section class="card controls">
           <div class="section-title">
-            <h2>入力</h2>
+            <h2>操作ボタン</h2>
             <p>カメラかファイルを選択</p>
           </div>
 
@@ -52,11 +83,23 @@
             <button id="analyzeButton" class="button accent" disabled>AIで判定</button>
             <button id="autoAnalyzeButton" class="button ghost" disabled>実況モード OFF</button>
           </div>
+
+          <label class="interval-control" for="autoAnalyzeIntervalInput">
+            <span>実況モード間隔（秒）</span>
+            <input
+              id="autoAnalyzeIntervalInput"
+              type="number"
+              min="2"
+              step="1"
+              value="30"
+              inputmode="numeric"
+            />
+          </label>
         </section>
 
         <section class="card preview-panel">
           <div class="section-title">
-            <h2>プレビュー</h2>
+            <h2>カメラ画像</h2>
             <p id="sourceLabel">ソース未選択</p>
           </div>
 
@@ -70,27 +113,10 @@
           </div>
         </section>
 
-        <section class="card result-panel">
+        <section class="card details-panel">
           <div class="section-title">
-            <h2>判定結果</h2>
-            <p>赤・黄・青で表示</p>
-          </div>
-
-          <div class="traffic-light" id="trafficLight">
-            <div class="lamp lamp-red"></div>
-            <div class="lamp lamp-yellow"></div>
-            <div class="lamp lamp-blue"></div>
-          </div>
-
-          <div class="score-wrap">
-            <div>
-              <p class="metric-label">Interrupt Score</p>
-              <p id="scoreValue" class="metric-value">--</p>
-            </div>
-            <div>
-              <p class="metric-label">Confidence</p>
-              <p id="confidenceValue" class="metric-small">--</p>
-            </div>
+            <h2>その他</h2>
+            <p>補足コメントとステータス</p>
           </div>
 
           <p id="headline" class="headline">判定待ち</p>
